@@ -14,6 +14,25 @@ def sanitize_name(name, is_alt_form=False):
     name = name.lower()
     return name
 
+
+
+####################
+##  GET GENDER    ##
+####################
+def get_gender(table):
+    gender_row = table.find("th", string="Gender")
+    if gender_row:
+        gender_cell = gender_row.find_next_sibling("td")
+        if "genderless" in gender_cell.text.lower():
+            return "Genderless"
+        elif "male" in gender_cell.text.lower() and "female" in gender_cell.text.lower():
+            return "Both"
+        elif "male" in gender_cell.text.lower():
+            return "Male"
+        elif "female" in gender_cell.text.lower():
+            return "Female"
+    return None
+
 ####################
 ##  Get Base Name ##
 ####################
@@ -147,7 +166,8 @@ def get_pokemon_details(url):
     abilities = [a.text for a in rows[5].find("td").find_all("a")]
     local_no = rows[6].find("td").text.strip()
     moves = get_moves(soup)
-
+	gender = get_gender(table)
+	
     details = {
         "species": species,
         "height": height,
@@ -155,6 +175,7 @@ def get_pokemon_details(url):
         "abilities": abilities,
         "local_no": local_no,
         "moves": moves  # Add the moves key
+		"gender": gender
     }
 
     return details
@@ -234,4 +255,3 @@ with open("pokemon_data.json", "w") as outfile:
     json.dump(completed_pokemon_list, outfile, indent=4)
 
     print("Data extraction completed.")
-
