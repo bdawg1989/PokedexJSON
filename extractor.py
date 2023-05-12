@@ -6,15 +6,24 @@ import re
 ####################
 ##  Sanitize Name ##
 ####################
-def sanitize_name(name):
-    name = name.replace(" ", "-").replace(".", "").replace(":", "").replace("♀", "-f").replace("♂", "-m")
-    name = name.replace("é", "e")
-    name = re.sub(r"[^a-zA-Z0-9\-]", "", name) 
-    return name.lower()
+def sanitize_name(name, is_alt_form=False):
+    name = name.replace("♀", "-f").replace("♂", "-m")
+    name = re.sub(r"[^a-zA-Z0-9\s-]", "", name)  # Remove any special characters except spaces and hyphens
+    name = name.replace(" ", "-")  # Replace spaces with hyphens
+    name = name.replace("é", "e")  # Replace "é" with "e"
+    name = name.lower()
+    return name
 
-##########################
+####################
+##  Get Base Name ##
+####################
+def get_base_name(name):
+    base_name = re.sub(r'\s\(.*\)', '', name)  # Remove form name from alternate forms
+    return base_name
+    
+####################
 ## GET MOVES FROM TABLE ##
-##########################
+####################
 def get_moves_from_table(moves_table):
     move_rows = moves_table.find_all("tr")[1:]
     header_row = moves_table.find("tr")
@@ -56,6 +65,9 @@ def get_moves_from_table(moves_table):
 
     return moves
 
+
+
+
 ####################
 ##   GET MOVES    ##
 ####################
@@ -68,22 +80,22 @@ def get_moves(soup):
         header_row = moves_table.find("tr")
         headers = header_row.find_all("th")
 
-      
+        # Check if the table has a "Level" column
         has_level_column = any("Lv." in header.get_text() for header in headers)
         if not has_level_column:
-            
+            # Check if the table has a "TM" column
             has_tm_column = any("TM" in cell.get_text() for cell in cells)
             if has_tm_column:
-                continue  
+                continue  # Skip the table with "TM" column
 
         for row in move_rows:
             cells = row.find_all("td")
             move_link = cells[1].find("a", class_="ent-name")
-            if not move_link:  
+            if not move_link:  # Skip rows without move name
                 continue
             move = move_link.text
             move_type_element = cells[2].find("a", class_="type-icon")
-            if not move_type_element: 
+            if not move_type_element:  # Skip rows without move type
                 continue
             move_type = move_type_element.text
             power_cell = cells[4].text
@@ -108,12 +120,11 @@ def get_moves(soup):
 
     return moves
 
+
 ####################
 ##  GET DETAILS   ##
 ####################      
 def get_pokemon_details(url):
-    if '-' in url.split('/')[-1]:
-        return None
 
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
@@ -143,7 +154,7 @@ def get_pokemon_details(url):
         "weight": weight,
         "abilities": abilities,
         "local_no": local_no,
-        "moves": moves  
+        "moves": moves  # Add the moves key
     }
 
     return details
@@ -161,10 +172,12 @@ for row in rows[1:]:
     cells = row.find_all("td")
     image_url = cells[0].find("img")["src"]
     dex_number = int(cells[0].find("span", class_="infocard-cell-data").text)
-    name = cells[1].find("a", class_="ent-name").text
+    name_element = cells[1].find("a", class_="ent-name")
+    name = name_element.text
     form_name_element = cells[1].find("small", class_="text-muted")
     if form_name_element:
-        name += f" ({form_name_element.text})"
+        form_name = form_name_element.text
+        name += f" ({form_name})"
     types = [typ.text for typ in cells[2].find_all("a")]
     total = int(cells[3].text)
     hp = int(cells[4].text)
@@ -190,6 +203,7 @@ for row in rows[1:]:
 
     pokemon_list.append(pokemon)
 
+
 total_pokemon = len(pokemon_list)
 completed_pokemon = 0
 
@@ -199,11 +213,16 @@ completed_pokemon_list = []
 with open("pokemon_data.json", "w") as outfile:
     for i, pokemon in enumerate(pokemon_list):
         name = pokemon["name"]
-        sanitized_name = sanitize_name(name)
+        base_name = get_base_name(name)
+        sanitized_name = sanitize_name(base_name)
         pokedex_url = f"https://pokemondb.net/pokedex/{sanitized_name}"
         details = get_pokemon_details(pokedex_url)
 
         if details:
+            if '(' in name:
+                form_name = re.findall(r'\((.*?)\)', name)[0]
+                pokemon['form_name'] = form_name
+
             pokemon.update(details)
             # Append the Pokémon dictionary to the completed_pokemon_list.
             completed_pokemon_list.append(pokemon)
