@@ -12,56 +12,102 @@ def sanitize_name(name):
     name = re.sub(r"[^a-zA-Z0-9\-]", "", name) 
     return name.lower()
 
-
-
-####################
+##########################
 ## GET MOVES FROM TABLE ##
-####################
-def get_moves_from_table(moves_table, level_key=None):
+##########################
+def get_moves_from_table(moves_table):
     move_rows = moves_table.find_all("tr")[1:]
+    header_row = moves_table.find("tr")
+    headers = header_row.find_all("th")
+
+    level_column_index = None
+    for i, header in enumerate(headers):
+        if "lvl" in header.text.lower() or "level" in header.text.lower():
+            level_column_index = i
+            break
 
     moves = []
     for row in move_rows:
         cells = row.find_all("td")
-        level = int(cells[level_key].text) if level_key is not None else None
         move_link = cells[1].find("a", class_="ent-name")
         if not move_link:
             continue
         move = move_link.text
-        move_type = cells[2].find("a", class_="type-icon").text
-        power = cells[4].text
-        accuracy = cells[5].text
+        move_type_element = cells[2].find("a", class_="type-icon")
+        if not move_type_element:
+            continue
+        move_type = move_type_element.text
+        power_cell = cells[4].text
+        power = int(power_cell) if power_cell.isdigit() else None
+        accuracy_cell = cells[5].text
+        accuracy = int(accuracy_cell) if accuracy_cell.isdigit() else None
+
+        level_cell = cells[0]
+        level = int(level_cell.text) if level_cell.text.isdigit() else None
 
         move_data = {
             "level": level,
             "move": move,
             "type": move_type,
-            "power": int(power) if power.isdigit() else None,
-            "accuracy": int(accuracy) if accuracy.isdigit() else None
+            "power": power,
+            "accuracy": accuracy
         }
         moves.append(move_data)
 
     return moves
 
-
 ####################
 ##   GET MOVES    ##
 ####################
 def get_moves(soup):
-    level_up_table = soup.find_all("table", class_="data-table")[0]
-    tm_table = soup.find_all("table", class_="data-table")[1]
-    egg_moves_table = soup.find_all("table", class_="data-table")[2]
+    moves_tables = soup.find_all("table", class_="data-table")
 
-    level_up_moves = get_moves_from_table(level_up_table, level_key=0)
-    tm_moves = get_moves_from_table(tm_table)
-    egg_moves = get_moves_from_table(egg_moves_table)
+    moves = []
+    for moves_table in moves_tables:
+        move_rows = moves_table.find_all("tr")[1:]
+        header_row = moves_table.find("tr")
+        headers = header_row.find_all("th")
 
-    return level_up_moves + tm_moves + egg_moves
+      
+        has_level_column = any("Lv." in header.get_text() for header in headers)
+        if not has_level_column:
+            
+            has_tm_column = any("TM" in cell.get_text() for cell in cells)
+            if has_tm_column:
+                continue  
 
+        for row in move_rows:
+            cells = row.find_all("td")
+            move_link = cells[1].find("a", class_="ent-name")
+            if not move_link:  
+                continue
+            move = move_link.text
+            move_type_element = cells[2].find("a", class_="type-icon")
+            if not move_type_element: 
+                continue
+            move_type = move_type_element.text
+            power_cell = cells[4].text
+            power = int(power_cell) if power_cell.isdigit() else None
+            accuracy_cell = cells[5].text
+            accuracy = int(accuracy_cell) if accuracy_cell.isdigit() else None
 
+            level = None
+            if has_level_column:
+                level_cell = cells[0]
+                if level_cell.text.isdigit():
+                    level = int(level_cell.text)
 
+            move_data = {
+                "level": level,
+                "move": move,
+                "type": move_type,
+                "power": power,
+                "accuracy": accuracy
+            }
+            moves.append(move_data)
 
-    
+    return moves
+
 ####################
 ##  GET DETAILS   ##
 ####################      
@@ -82,8 +128,8 @@ def get_pokemon_details(url):
     local_no_row = table.find("th", string="Local №")
     if local_no_row:
         local_no_cell = local_no_row.find_next_sibling("td")
-        local_nos = re.findall(r'\d+ .+?\)', local_no_cell.text)  
-        local_no = '\n'.join(local_nos) 
+        local_nos = re.findall(r'\d+ .+?\)', local_no_cell.text)  # Find all sets of parentheses
+        local_no = '\n'.join(local_nos)  # Join them with newline character
     species = rows[2].find("td").text
     height = rows[3].find("td").text
     weight = rows[4].find("td").text
@@ -144,7 +190,6 @@ for row in rows[1:]:
 
     pokemon_list.append(pokemon)
 
-
 total_pokemon = len(pokemon_list)
 completed_pokemon = 0
 
@@ -160,7 +205,7 @@ with open("pokemon_data.json", "w") as outfile:
 
         if details:
             pokemon.update(details)
-    
+            # Append the Pokémon dictionary to the completed_pokemon_list.
             completed_pokemon_list.append(pokemon)
             completed_pokemon += 1
             percentage = (completed_pokemon / total_pokemon) * 100
