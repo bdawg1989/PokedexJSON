@@ -14,24 +14,33 @@ def sanitize_name(name, is_alt_form=False):
     name = name.lower()
     return name
 
-
-
 ####################
 ##  GET GENDER    ##
 ####################
 def get_gender(table):
     gender_row = table.find("th", string="Gender")
+    genders = []
     if gender_row:
-        gender_cell = gender_row.find_next_sibling("td")
-        if "genderless" in gender_cell.text.lower():
-            return "Genderless"
-        elif "male" in gender_cell.text.lower() and "female" in gender_cell.text.lower():
-            return "Both"
-        elif "male" in gender_cell.text.lower():
-            return "Male"
-        elif "female" in gender_cell.text.lower():
-            return "Female"
-    return None
+        gender_cells = gender_row.find_next_sibling("td").find_all("span")
+        male_percentage = 0
+        female_percentage = 0
+        for cell in gender_cells:
+            if "male" in cell.text.lower():
+                male_percentage = float(cell.text.split("%")[0])  # Change int to float
+            elif "female" in cell.text.lower():
+                female_percentage = float(cell.text.split("%")[0])  # Change int to float
+                
+        if male_percentage == 100:
+            genders.append("Male")
+        elif female_percentage == 100:
+            genders.append("Female")
+        elif male_percentage > 0 and female_percentage > 0:
+            genders.append("Male")
+            genders.append("Female")
+        else:
+            genders.append("Genderless")
+
+    return genders if genders else None
 
 ####################
 ##  Get Base Name ##
@@ -40,9 +49,9 @@ def get_base_name(name):
     base_name = re.sub(r'\s\(.*\)', '', name)  # Remove form name from alternate forms
     return base_name
     
-####################
+##########################
 ## GET MOVES FROM TABLE ##
-####################
+##########################
 def get_moves_from_table(moves_table):
     move_rows = moves_table.find_all("tr")[1:]
     header_row = moves_table.find("tr")
@@ -83,9 +92,6 @@ def get_moves_from_table(moves_table):
         moves.append(move_data)
 
     return moves
-
-
-
 
 ####################
 ##   GET MOVES    ##
@@ -139,7 +145,6 @@ def get_moves(soup):
 
     return moves
 
-
 ####################
 ##  GET DETAILS   ##
 ####################      
@@ -166,16 +171,16 @@ def get_pokemon_details(url):
     abilities = [a.text for a in rows[5].find("td").find_all("a")]
     local_no = rows[6].find("td").text.strip()
     moves = get_moves(soup)
-	gender = get_gender(table)
-	
+    gender = get_gender(soup)
+    
     details = {
         "species": species,
         "height": height,
         "weight": weight,
         "abilities": abilities,
         "local_no": local_no,
-        "moves": moves  # Add the moves key
-		"gender": gender
+        "moves": moves,
+        "gender": gender
     }
 
     return details
@@ -224,7 +229,6 @@ for row in rows[1:]:
 
     pokemon_list.append(pokemon)
 
-
 total_pokemon = len(pokemon_list)
 completed_pokemon = 0
 
@@ -255,3 +259,4 @@ with open("pokemon_data.json", "w") as outfile:
     json.dump(completed_pokemon_list, outfile, indent=4)
 
     print("Data extraction completed.")
+
