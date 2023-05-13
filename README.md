@@ -11,8 +11,13 @@ Pokédex in JSON format with extractor to always have it updated
   
   - Number
   - Name
-  - URL Photo (From Nintendo Official site)
-  - URL Description (From Nintendo Official site)
+  - Sprite image url
+  - Learned Moves
+  - Egg Moves
+  - TM's
+  - Gender
+  - Abilities
+  - Stats - HP, Atk, Def, SpA, SpD, and Spe.
 
 - There is an extractor in Python that generates an always updated JSON
 
