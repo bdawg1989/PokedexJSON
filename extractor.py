@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import json
 import re
 
+
 ####################
 ##  Sanitize Name ##
 ####################
@@ -17,30 +18,40 @@ def sanitize_name(name, is_alt_form=False):
 ####################
 ##  GET GENDER    ##
 ####################
-def get_gender(table):
-    gender_row = table.find("th", string="Gender")
-    genders = []
-    if gender_row:
-        gender_cells = gender_row.find_next_sibling("td").find_all("span")
-        male_percentage = 0
-        female_percentage = 0
-        for cell in gender_cells:
-            if "male" in cell.text.lower():
-                male_percentage = float(cell.text.split("%")[0])  # Change int to float
-            elif "female" in cell.text.lower():
-                female_percentage = float(cell.text.split("%")[0])  # Change int to float
-                
-        if male_percentage == 100:
-            genders.append("Male")
-        elif female_percentage == 100:
-            genders.append("Female")
-        elif male_percentage > 0 and female_percentage > 0:
-            genders.append("Male")
-            genders.append("Female")
-        else:
-            genders.append("Genderless")
+def get_gender(soup):
+    breeding_section = soup.find("h2", string="Breeding")
+    
+    if not breeding_section:
+        return ["Genderless"]
 
-    return genders if genders else None
+    table = breeding_section.find_next("table", class_="vitals-table")
+
+    if not table:
+        return ["Genderless"]
+
+    gender_row = table.find("th", string="Gender")
+
+    if not gender_row:
+        return ["Genderless"]
+
+    gender_info = gender_row.find_next_sibling("td")
+
+    if not gender_info:
+        return ["Genderless"]
+
+    gender_text = gender_info.get_text(strip=True)
+    
+    if "Genderless" in gender_text:
+        return ["Genderless"]
+    
+    genders = []
+
+    if "male" in gender_text.lower():
+        genders.append("Male")
+    if "female" in gender_text.lower():
+        genders.append("Female")
+
+    return genders
 
 ####################
 ##  Get Base Name ##
