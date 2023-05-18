@@ -70,80 +70,41 @@ def get_moves_from_table(moves_table):
 
     level_column_index = None
     for i, header in enumerate(headers):
-        if "lvl" in header.text.lower() or "level" in header.text.lower():
+        header_text = header.find("div", class_="sortwrap")
+        if header_text and "lv." in header_text.text.lower():
             level_column_index = i
             break
 
     moves = []
     for row in move_rows:
         cells = row.find_all("td")
-        move_link = cells[1].find("a", class_="ent-name")
-        if not move_link:
-            continue
-        move = move_link.text
-        move_type_element = cells[2].find("a", class_="type-icon")
-        if not move_type_element:
-            continue
-        move_type = move_type_element.text
-        power_cell = cells[4].text
-        power = int(power_cell) if power_cell.isdigit() else None
-        accuracy_cell = cells[5].text
-        accuracy = int(accuracy_cell) if accuracy_cell.isdigit() else None
 
-        level_cell = cells[0]
-        level = int(level_cell.text) if level_cell.text.isdigit() else None
+        move_link = None
+        move_type_element = None
 
-        move_data = {
-            "level": level,
-            "move": move,
-            "type": move_type,
-            "power": power,
-            "accuracy": accuracy
-        }
-        moves.append(move_data)
+        for cell in cells:
+            if not move_link:
+                move_link = cell.find("a", class_="ent-name")
+            if not move_type_element:
+                move_type_element = cell.find("a", class_="type-icon")
+            if move_link and move_type_element:
+                break
 
-    return moves
-
-####################
-##   GET MOVES    ##
-####################
-def get_moves(soup):
-    moves_tables = soup.find_all("table", class_="data-table")
-
-    moves = []
-    for moves_table in moves_tables:
-        move_rows = moves_table.find_all("tr")[1:]
-        header_row = moves_table.find("tr")
-        headers = header_row.find_all("th")
-
-        # Check if the table has a "Level" column
-        has_level_column = any("Lv." in header.get_text() for header in headers)
-        if not has_level_column:
-            # Check if the table has a "TM" column
-            has_tm_column = any("TM" in cell.get_text() for cell in cells)
-            if has_tm_column:
-                continue  # Skip the table with "TM" column
-
-        for row in move_rows:
-            cells = row.find_all("td")
-            move_link = cells[1].find("a", class_="ent-name")
-            if not move_link:  # Skip rows without move name
-                continue
+        if move_link and move_type_element:
             move = move_link.text
-            move_type_element = cells[2].find("a", class_="type-icon")
-            if not move_type_element:  # Skip rows without move type
-                continue
             move_type = move_type_element.text
-            power_cell = cells[4].text
-            power = int(power_cell) if power_cell.isdigit() else None
-            accuracy_cell = cells[5].text
-            accuracy = int(accuracy_cell) if accuracy_cell.isdigit() else None
 
-            level = None
-            if has_level_column:
-                level_cell = cells[0]
-                if level_cell.text.isdigit():
-                    level = int(level_cell.text)
+            if level_column_index is not None:
+                level_cell = cells[level_column_index]
+                level = level_cell.text.strip() if level_cell.text.strip().isdigit() else None
+            else:
+                level = None
+
+            power_cell = cells[-2].text
+            power = int(power_cell) if power_cell.isdigit() else None
+
+            accuracy_cell = cells[-1].text
+            accuracy = int(accuracy_cell) if accuracy_cell.isdigit() else None
 
             move_data = {
                 "level": level,
@@ -156,11 +117,41 @@ def get_moves(soup):
 
     return moves
 
+
+####################
+##   GET MOVES    ##
+####################
+def get_moves(soup):
+    moves_tables = soup.find_all("table", class_="data-table")
+
+    moves = []
+    for moves_table in moves_tables:
+        moves.extend(get_moves_from_table(moves_table))
+
+    return moves
+
+####################
+##  Get EVOLUTION ##
+####################  
+def get_evolutions(soup):
+    evolutions = {}
+    infocard_list_evo = soup.find("div", class_="infocard-list-evo")
+    if infocard_list_evo:
+        infocard_arrows = infocard_list_evo.find_all("span", class_="infocard-arrow")
+        for arrow in infocard_arrows:
+            level_text = arrow.find("small").text
+            level = int(re.search(r'\d+', level_text).group()) if re.search(r'\d+', level_text) else None
+            next_pokemon = arrow.find_next("span", class_="infocard-lg-data").find("a", class_="ent-name").text
+            evolutions[next_pokemon] = level
+    return evolutions
+    
 ####################
 ##  GET DETAILS   ##
 ####################      
 def get_pokemon_details(url):
-
+    # Specific condition for Flabébé
+    if url.endswith("flabb"):
+        url = url[:-5] + "flabebe"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
 
@@ -183,6 +174,7 @@ def get_pokemon_details(url):
     local_no = rows[6].find("td").text.strip()
     moves = get_moves(soup)
     gender = get_gender(soup)
+    evolutions = get_evolutions(soup)  # Retrieve evolution information
     
     details = {
         "species": species,
@@ -191,7 +183,8 @@ def get_pokemon_details(url):
         "abilities": abilities,
         "local_no": local_no,
         "moves": moves,
-        "gender": gender
+        "gender": gender,
+        "evolutions": evolutions  # Include evolutions in the details
     }
 
     return details
@@ -260,8 +253,74 @@ with open("pokemon_data.json", "w") as outfile:
                 pokemon['form_name'] = form_name
 
             pokemon.update(details)
+            # Custom name changes
+            custom_name_changes = {
+                "Tauros (Combat Breed)": "Tauros-Paldea-Combat",
+                "Tauros (Blaze Breed)": "Tauros-Paldea-Blaze",
+                "Tauros (Aqua Breed)": "Tauros-Paldea-Aqua",
+                "Tatsugiri (Curly Form)": "Tatsugiri",
+                "Tatsugiri (Droopy Form)": "Tatsugiri-Droopy",
+                "Tatsugiri (Stretchy Form)": "Tatsugiri-Stretchy",
+                "Lycanroc (Midday Form)": "Lycanroc",
+                "Lycanroc (Dusk Form)": "Lycanroc-Dusk",
+                "Lycanroc (Midnight Form)": "Lycanroc-Midnight",
+                "Oricorio (Baile Style)": "Oricorio",
+                "Oricorio (Pom-Pom Style)": "Oricorio-Pom-Pom",
+                "Oricorio (Pa'u Style)": "Oricorio-Pa'u",
+                "Oricorio (Sensu Style)": "Oricorio-Sensu",
+                "Toxtricity (Amped Form)": "Toxtricity",
+                "Toxtricity (Low Key Form)": "Toxtricity-Low-Key",
+                "Maushold (Family of Three)": "Maushold",
+                "Maushold (Family of Four)": "Maushold-Four",
+                "Dudunsparce (Three-Segment Form)": "Dudunsparce-Three-Segment",
+                "Dudunsparce (Two-Segment Form)": "Dudunsparce",
+                "Flabébé": "Flabebe",
+                "Zoroark (Hisuian Zoroark)": "Zoroark-Hisui",
+                "Braviary (Hisuian Braviary)": "Braviary-Hisui",
+                "Arcanine (Hisuian Arcanine)": "Arcanine-Hisui",
+                "Avalugg (Hisuian Avalugg)": "Avalugg-Hisui",
+                "Decidueye (Hisuian Decidueye)": "Decidueye-Hisui",
+                "Electrode (Hisuian Electrode)": "Electrode-Hisui",
+                "Goodra (Hisuian Goodra)": "Goodra-Hisui",
+                "Growlithe (Hisuian Growlithe)": "Growlithe-Hisui",
+                "Lilligant (Hisuian Lilligant)": "Lilligant-Hisui",
+                "Qwilfish (Hisuian Qwilfish)": "Qwilfish-Hisui",
+                "Samurott (Hisuian Samurott)": "Samurott-Hisui",
+                "Sliggoo (Hisuian Sliggoo)": "Sliggoo-Hisui",
+                "Sneasel (Hisuian Sneasel)": "Sneasel-Hisui",
+                "Typhlosion (Hisuian Typhlosion)": "Typhlosion-Hisui",
+                "Voltorb (Hisuian Voltorb)": "Voltorb-Hisui",
+                "Zorua (Hisuian Zorua)": "Zorua-Hisui",
+                "Rotom (Heat Rotom)": "Rotom-Heat",
+                "Rotom (Mow Rotom)": "Rotom-Mow",
+                "Rotom (Fan Rotom)": "Rotom-Fan",
+                "Rotom (Frost Rotom)": "Rotom-Frost",
+                "Rotom (Wash Rotom)": "Rotom-Wash",
+                "Basculin (Red-Striped Form)": "Basculin",
+                "Basculin (Blue-Striped Form)": "Basculin-Blue-Striped",
+                "Basculin (White-Striped Form)": "Basculin-White-Striped",
+                "Indeedee (Male)": "Indeedee",
+                "Indeedee (Female)": "Indeedee-F",
+                "Squawkabilly (Green Plumage)": "Squawkabilly",
+                "Squawkabilly (Blue Plumage)": "Squawkabilly-Blue",
+                "Squawkabilly (Yellow Plumage)": "Squawkabilly-Yellow",
+                "Squawkabilly (White Plumage)": "Squawkabilly-White",
+                "Oinkologne (Female)": "Oinkologne-F",
+                "Oinkologne (Male)": "Oinkologne",
+                "Wooper (Paldean Wooper)": "Wooper-Paldea"
+            }
+
+            if name in custom_name_changes:
+                pokemon["name"] = custom_name_changes[name]
             # Append the Pokémon dictionary to the completed_pokemon_list.
             completed_pokemon_list.append(pokemon)
+            # Handle evolutions
+            for evolved_pokemon, level in details["evolutions"].items():
+                for p in completed_pokemon_list:
+                    if p["name"] == evolved_pokemon:
+                        p["Evolves"] = level
+                        break
+
             completed_pokemon += 1
             percentage = (completed_pokemon / total_pokemon) * 100
             print(f"Progress: {completed_pokemon}/{total_pokemon} ({percentage:.2f}%) - {name}")
@@ -270,4 +329,5 @@ with open("pokemon_data.json", "w") as outfile:
     json.dump(completed_pokemon_list, outfile, indent=4)
 
     print("Data extraction completed.")
+
 
