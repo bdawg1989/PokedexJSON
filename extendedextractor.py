@@ -2,6 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import re
+from tqdm import tqdm
+import colorama
+colorama.init()
 
 
 ####################
@@ -149,9 +152,11 @@ def get_moves(name):
                     else:
                         # If not, add the new move to the dictionary.
                         all_moves[move] = move_data
-        else:
-            print(f"Skipping Generation {i} for {name}")
+                # Break out of the inner loop and move to the next table
+                break
     return all_moves
+
+
 
 
 ####################
@@ -173,8 +178,13 @@ def get_evolutions(soup):
 ##  GET DETAILS   ##
 ####################      
 def get_pokemon_details(name, url):
+    session = requests.Session()  # Create a session object
+    response = session.get(url)  # Use the session object for making the request
+    # Specific condition for Flabébé
+    if url.endswith("flabb"):
+        url = url[:-5] + "flabebe"
     response = requests.get(url)
-    soup = BeautifulSoup(response.text, "html.parser")
+    soup = BeautifulSoup(response.text, "lxml")
 
     table = soup.find("table", class_="vitals-table")
     
@@ -255,18 +265,25 @@ for row in rows[1:]:
     pokemon_list.append(pokemon)
 
 total_pokemon = len(pokemon_list)
-completed_pokemon = 0
-
+completed_pokemon = 0 
 # Create an empty list to store completed Pokémon dictionaries.
 completed_pokemon_list = []
 
 with open("pokemon_data.json", "w") as outfile:
-    for i, pokemon in enumerate(pokemon_list):
+    for i, pokemon in tqdm(
+        enumerate(pokemon_list),
+        total=total_pokemon,
+        unit="pokemon",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}]",
+        colour='green'  # Change the color to green
+    ):
         name = pokemon["name"]
         base_name = get_base_name(name)
         sanitized_name = sanitize_name(base_name)
         pokedex_url = f"https://pokemondb.net/pokedex/{sanitized_name}"
         details = get_pokemon_details(sanitized_name, pokedex_url)  # Provide name and URL
+
+
 
 
         if details:
@@ -329,7 +346,179 @@ with open("pokemon_data.json", "w") as outfile:
                 "Squawkabilly (White Plumage)": "Squawkabilly-White",
                 "Oinkologne (Female)": "Oinkologne-F",
                 "Oinkologne (Male)": "Oinkologne",
-                "Wooper (Paldean Wooper)": "Wooper-Paldea"
+                "Wooper (Paldean Wooper)": "Wooper-Paldea",
+				"Hoopa (Hoopa Confined)": "Hoopa",
+				"Hoopa (Hoopa Unbound)": "Hoopa-Unbound",
+				"Charizard (Mega Charizard X)": "Charizard-Mega-X",
+				"Charizard (Mega Charizard Y)": "Charizard-Mega-Y",
+				"Diancie (Mega Diancie)": "Diancie-Mega",
+				"Landorus (Incarnate Forme)": "Landorus",
+				"Landorus (Therian Forme)": "Landorus-Therian",
+				"Lopunny (Mega Lopunny)": "Lopunny-Mega",
+				"Scizor (Mega Scizor)": "Scizor-Mega",
+				"Swampert (Mega Swampert)": "Swampert-Mega",
+				"Tornadus (Incarnate Forme)": "Tornadus",
+				"Tornadus (Therian Forme)": "Tornadus-Therian",
+				"Urshifu (Single Strike Style)": "Urshifu",
+				"Urshifu (Rapid Strike Style)": "Urshifu-Rapid-Strike",
+				"Garchomp (Mega Garchomp)": "Garchomp-Mega",
+				"Mawile (Mega Mawile)": "Mawile-Mega",
+				"Medicham (Mega Medicham)": "Medicham-Mega",
+				"Pinsir (Mega Pinsir)": "Pinsir-Mega",
+				"Beedrill (Mega Beedrill)": "Beedrill-Mega",
+				"Gardevoir (Mega Gardevoir)": "Gardevoir-Mega",
+				"Gyarados (Mega Gyarados)": "Gyarados-Mega",
+				"Latios (Mega Latios)": "Latios-Mega",
+				"Latias (Mega Latias)": "Latias-Mega",
+				"Ninetales (Alolan Ninetales)": "Ninetales-Alola",
+				"Vulpix (Alolan Vulpix)": "Vulpix-Alola",
+				"Sableye (Mega Sableye)": "Sableye-Mega",
+				"Slowpoke (Galarian Slowpoke)": "Slowpoke-Galar",
+				"Slowbro (Mega Slowbro)": "Slowbro-Mega",
+				"Slowbro (Galarian Slowbro)": "Slowbro-Galar",
+				"Slowking (Galarian Slowking)": "Slowking-Galar",
+				"Tyranitar (Mega Tyranitar)": "Tyranitar-Mega",
+				"Venusaur (Mega Venusaur)": "Venusaur-Mega",
+				"Gallade (Mega Gallade)": "Gallade-Mega",
+				"Moltres (Galarian Moltres)": "Moltres-Galar",
+				"Zapdos (Galarian Zapdos)": "Zapdos-Galar",
+				"Articuno (Galarian Articuno)": "Articuno-Galar",
+				"Abomasnow (Mega Abomasnow)": "Abomasnow-Mega",
+				"Absol (Mega Absol)": "Absol-Mega",
+				"Aerodactyl (Mega Aerodactyl)": "Aerodactyl-Mega",
+				"Aggron (Mega Aggron)": "Aggron-Mega",
+				"Altaria (Mega Altaria)": "Altaria-Mega",
+				"Ampharos (Mega Ampharos)": "Ampharos-Mega",
+				"Audino (Mega Audino)": "Audino-Mega",
+				"Banette (Mega Banette)": "Banette-Mega",
+				"Camerupt (Mega Camerupt)": "Camerupt-Mega",
+				"Deoxys (Normal Forme)": "Deoxys",
+				"Deoxys (Attack Forme)": "Deoxys-Attack",
+				"Deoxys (Defense Forme)": "Deoxys-Defense",
+				"Deoxys (Speed Forme)": "Deoxys-Speed",
+				"Dugtrio (Alolan Dugtrio)": "Dugtrio-Alola",
+				"Exeggutor (Alolan Exeggutor)": "Exeggutor-Alola",
+				"Glalie (Mega Glalie)": "Glalie-Mega",
+				"Geodude (Alolan Geodude)": "Geodude-Alola",
+				"Graveler (Alolan Graveler)": "Graveler-Alola",
+				"Golem (Alolan Golem)": "Golem-Alola",
+				"Pumpkaboo (Average Size)": "Pumpkaboo",
+				"Pumpkaboo (Small Size)": "Pumpkaboo-Small",
+				"Pumpkaboo (Large Size)": "Pumpkaboo-Large",
+				"Pumpkaboo (Super Size)": "Pumpkaboo-Super",
+				"Gourgeist (Average Size)": "Gourgeist",
+				"Gourgeist (Small Size)": "Gourgeist-Small",
+				"Gourgeist (Large Size)": "Gourgeist-Large",
+				"Gourgeist (Super Size)": "Gourgeist-Super",
+				"Heracross (Mega Heracross)": "Heracross-Mega",
+				"Houndoom (Mega Houndoom)": "Houndoom-Mega",
+				"Keldeo (Ordinary Form)": "Keldeo",
+				"Keldeo (Resolute Form)": "Keldeo-Resolute",
+				"Manectric (Mega Manectric)": "Manectric-Mega",
+				"Marowak (Alolan Marowak)": "Marowak-Alola",
+				"Meowstic (Male)": "Meowstic",
+				"Meowstic (Female)": "Meowstic-F",
+				"Meowth (Alolan Meowth)": "Meowth-Alola",
+				"Meowth (Galarian Meowth)": "Meowth-Galar",
+				"Persian (Alolan Persian)": "Persian-Alola",
+				"Pidgeot (Mega Pidgeot)": "Pidgeot-Mega",
+				"Raichu (Alolan Raichu)": "Raichu-Alola",
+				"Ponyta (Galarian Ponyta)": "Ponyta-Galar",
+				"Rapidash (Galarian Rapidash)": "Rapidash-Galar",
+				"Rattata (Alolan Rattata)": "Rattata-Alola",
+				"Raticate (Alolan Raticate)": "Raticate-Alola",
+				"Sandshrew (Alolan Sandshrew)": "Sandshrew-Alola",
+				"Sceptile (Mega Sceptile)": "Sceptile-Mega",
+				"Sharpedo (Mega Sharpedo)": "Sharpedo-Mega",
+				"Steelix (Mega Steelix)": "Steelix-Mega",
+				"Stunfisk (Galarian Stunfisk)": "Stunfisk-Galar",
+				"Thundurus (Incarnate Forme)": "Thundurus",
+				"Thundurus (Therian Forme)": "Thundurus-Therian",
+				"Weezing (Galarian Weezing)": "Weezing-Galar",
+				"Burmy (Plant Cloak)": "Burmy",
+				"Burmy (Sandy Cloak)": "Burmy-Sandy",
+				"Burmy (Trash Cloak)": "Burmy-Trash",
+				"Wormadam (Plant Cloak)": "Wormadam",
+				"Wormadam (Sandy Cloak)": "Wormadam-Sandy",
+				"Wormadam (Trash Cloak)": "Wormadam-Trash",
+				"Zygarde (50% Forme)": "Zygarde",
+				"Zygarde (10% Forme)": "Zygarde-10%",
+				"Zygarde (Complete Forme)": "Zygarde-Complete",
+				"Linoone (Galarian Linoone)": "Linoone-Galar",
+				"Mr. Mime (Galarian Mr. Mime)": "Mr. Mime-Galar",
+				"Corsola (Galarian Corsola)": "Corsola-Galar",
+				"Darumaka (Galarian Darumaka)": "Darumaka-Galar",
+				"Diglett (Alolan Diglett)": "Diglett-Alola",
+				"Farfetch'd (Galarian Farfetch'd)": "Farfetch'd-Galar",
+				"Grimer (Alolan Grimer)": "Grimer-Alola",
+				"Nidoran\u2640": "Nidoran-M",
+				"Nidoran\u2640": "Nidoran-F",
+				"Yamask (Galarian Yamask)": "Yamask-Galar",
+				"Zigzagoon (Galarian Zigzagoon)": "Zigzagoon-Galar",
+				"Basculegion (Male)": "Basculegion",
+				"Basculegion (Female)": "Basculegion-F",
+				"Enamorus (Incarnate Forme)": "Enamorus",
+				"Enamorus (Therian Forme)": "Enamorus-Therian",
+				"Palafin (Zero Form)": "Palafin",
+				"Palafin (Hero Form)": "Palafin-Hero",
+				"Gimmighoul (Chest Form)": "Gimmighoul",
+				"Gimmighoul (Roaming Form)": "Gimmighoul-Roaming",
+				"Blastoise (Mega Blastoise)": "Blastoise-Mega",
+				"Alakazam (Mega Alakazam)": "Alakazam-Mega",
+				"Muk (Alolan Muk)": "Muk-Alola",
+				"Gengar (Mega Gengar)": "Gengar-Mega",
+				"Kangaskhan (Mega Kangaskhan)": "Kangaskhan-Mega",
+				"Eevee (Partner Eevee)": "Eevee",
+				"Mewtwo (Mega Mewtwo X)": "Mewtwo-Mega-X)",
+				"Mewtwo (Mega Mewtwo Y)": "Mewtwo-Mega-Y)",
+				"Sceptile (Mega Sceptile)": "Sceptile-Mega",
+				"Blaziken (Mega Blaziken)": "Blaziken-Mega",
+				"Castform (Sunny Form)": "Castform-Sunny",
+				"Castform (Rainy Form)": "Castform-Rainy",
+				"Castform (Snowy Form)": "Castform-Snowy",
+				"Salamence (Mega Salamence)": "Salamence-Mega",
+				"Metagross (Mega Metagross)": "Metagross-Mega",
+				"Kyogre (Primal Kyogre)": "Kyogre-Primal",
+				"Groudon (Primal Groudon)": "Groudon-Primal",
+				"Rayquaza (Mega Rayquaza)": "Rayquaza-Mega",
+				"Lucario (Mega Lucario)": "Lucario-Mega",
+				"Dialga (Origin Forme)": "Dialga-Origin",
+				"Palkia (Origin Forme)": "Palkia-Origin",
+				"Giratina (Altered Forme)": "Giratina",
+				"Giratina (Origin Forme)": "Giratina-Origin",
+				"Shaymin (Land Forme)": "Shaymin",
+				"Shaymin (Sky Forme)": "Shaymin-Sky",
+				"Audino (Mega Audino)": "Audino-Mega",
+				"Darmanitan (Standard Mode)": "Darmanitan",
+				"Darmanitan (Zen Mode)": "Darmanitan-Zen",
+				"Darmanitan (Galarian Standard Mode)": "Darmanitan-Galar",
+				"Darmanitan (Galarian Zen Mode)": "Darmanitan-Galar-Zen",
+				"Kyurem (White Kyurem)": "Kyurem-White",
+				"Kyurem (Black Kyurem)": "Kyurem-Black",
+				"Meloetta (Aria Forme)": "Meloetta",
+				"Meloetta (Pirouette Forme)": "Meloetta-Pirouette",
+				"Greninja (Ash-Greninja)": "Greninja-Ash",
+				"Aegislash (Shield Forme)": "Aegislash",
+				"Aegislash (Blade Forme)": "Aegislash-Blade",
+				"Rockruff (Own Tempo Rockruff)": "Rockruff-Own-Tempo",
+				"Wishiwashi (Solo Form)": "Wishiwashi",
+				"Wishiwashi (School Form)": "Wishiwashi-School",
+				"Minior (Meteor Form)": "Minior-Meteor",
+				"Minior (Core Form)": "Minior",
+				"Necrozma (Dusk Mane Necrozma)": "Necrozma-Dusk-Mane",
+				"Necrozma (Dawn Wings Necrozma)": "Necrozma-Dawn-Wings",
+				"Necrozma (Ultra Necrozma)": "Necrozma-Ultra",
+				"Eiscue (Ice Face)": "Eiscue",
+				"Eiscue (Noice Face)": "Eiscue-Noice",
+				"Morpeko (Full Belly Mode)": "Morpeko",
+				"Morpeko (Hangry Mode)": "Morpeko-Hangry",
+				"Zacian (Hero of Many Battles)": "Zacian",
+				"Zacian (Crowned Sword)": "Zacian-Crowned",
+				"Zamazenta (Hero of Many Battles)": "Zamazenta",
+				"Zamazenta (Crowned Shield)": "Zamazenta-Crowned",
+				"Eternatus (Eternamax)": "Eternatus-Eternamax",
+				"Calyrex (Ice Rider)": "Calyrex-Ice",
+				"Calyrex (Shadow Rider)": "Calyrex-Shadow"	
             }
 
             if name in custom_name_changes:
@@ -344,12 +533,9 @@ with open("pokemon_data.json", "w") as outfile:
                         break
 
             completed_pokemon += 1
-            percentage = (completed_pokemon / total_pokemon) * 100
-            print(f"Progress: {completed_pokemon}/{total_pokemon} ({percentage:.2f}%) - {name}")
 
     # Dump the completed_pokemon_list into the JSON file.
     json.dump(completed_pokemon_list, outfile, indent=4)
 
     print("Data extraction completed.")
-
 
