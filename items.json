@@ -47,6 +47,24 @@
             "Gen3"
         ]
     },
+    "LAPoke Ball": {
+        "Image": "//archives.bulbagarden.net/media/upload/d/df/Bag_Pok%C3%A9_Ball_LA_Sprite.png",
+        "Generation": [
+            "Gen8"
+        ]
+    },
+    "LAGreat Ball": {
+        "Image": "//archives.bulbagarden.net/media/upload/7/79/Bag_Great_Ball_LA_Sprite.png",
+        "Generation": [
+            "Gen8"
+        ]
+    },
+    "LAUltra Ball": {
+        "Image": "//archives.bulbagarden.net/media/upload/2/20/Bag_Ultra_Ball_LA_Sprite.png",
+        "Generation": [
+            "Gen8"
+        ]
+    },    
     "Safari Ball": {
         "Image": "//archives.bulbagarden.net/media/upload/thumb/8/8d/Bag_Safari_Ball_SV_Sprite.png/32px-Bag_Safari_Ball_SV_Sprite.png",
         "Generation": [
