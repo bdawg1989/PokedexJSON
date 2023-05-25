@@ -152,8 +152,6 @@ def get_moves(name):
                     else:
                         # If not, add the new move to the dictionary.
                         all_moves[move] = move_data
-                # Break out of the inner loop and move to the next table
-                break
     return all_moves
 
 
@@ -178,16 +176,26 @@ def get_evolutions(soup):
 ##  GET DETAILS   ##
 ####################      
 def get_pokemon_details(name, url):
-    session = requests.Session()  # Create a session object
-    response = session.get(url)  # Use the session object for making the request
-    # Specific condition for Flabébé
+    session = requests.Session()
+    response = session.get(url)
     if url.endswith("flabb"):
         url = url[:-5] + "flabebe"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "lxml")
 
+    tab_links = soup.find_all("a", class_="sv-tabs-tab")
+    form_links = [link for link in tab_links if link.get("href").startswith("#tab-basic-")]
+    abilities_map = {}
+
+    for form_link in form_links:
+        form_id = form_link["href"].replace("#tab-basic-", "")
+        form_name = form_link.text
+        form_tab = soup.find("div", id=f"tab-basic-{form_id}")
+        abilities_row = form_tab.find("th", string="Abilities").find_next_sibling("td")
+        abilities = [a.text for a in abilities_row.find_all("a")]
+        abilities_map[form_name] = abilities
+
     table = soup.find("table", class_="vitals-table")
-    
     if not table:
         print(f"Error: Table not found for URL: {url}")
         return None
@@ -196,26 +204,25 @@ def get_pokemon_details(name, url):
     local_no_row = table.find("th", string="Local №")
     if local_no_row:
         local_no_cell = local_no_row.find_next_sibling("td")
-        local_nos = re.findall(r'\d+ .+?\)', local_no_cell.text)  # Find all sets of parentheses
-        local_no = '\n'.join(local_nos)  # Join them with newline character
+        local_nos = re.findall(r'\d+ .+?\)', local_no_cell.text)
+        local_no = '\n'.join(local_nos)
     species = rows[2].find("td").text
     height = rows[3].find("td").text
     weight = rows[4].find("td").text
-    abilities = [a.text for a in rows[5].find("td").find_all("a")]
     local_no = rows[6].find("td").text.strip()
-    moves = get_moves(name)  # Get moves
+    moves = get_moves(name)
     gender = get_gender(soup)
-    evolutions = get_evolutions(soup)  # Retrieve evolution information
-    
+    evolutions = get_evolutions(soup)
+
     details = {
         "species": species,
         "height": height,
         "weight": weight,
-        "abilities": abilities,
+        "abilities": abilities_map,
         "local_no": local_no,
-        "moves": moves,  # Include moves in the details
+        "moves": moves,
         "gender": gender,
-        "evolutions": evolutions  # Include evolutions in the details
+        "evolutions": evolutions
     }
 
     return details
@@ -273,18 +280,16 @@ with open("pokemon_data.json", "w") as outfile:
     for i, pokemon in tqdm(
         enumerate(pokemon_list),
         total=total_pokemon,
+        desc="Extracting Data",
         unit="pokemon",
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}]",
-        colour='green'  # Change the color to green
+        colour='green'
     ):
         name = pokemon["name"]
         base_name = get_base_name(name)
         sanitized_name = sanitize_name(base_name)
         pokedex_url = f"https://pokemondb.net/pokedex/{sanitized_name}"
-        details = get_pokemon_details(sanitized_name, pokedex_url)  # Provide name and URL
-
-
-
+        details = get_pokemon_details(sanitized_name, pokedex_url)
 
         if details:
             if '(' in name:
@@ -523,9 +528,9 @@ with open("pokemon_data.json", "w") as outfile:
 
             if name in custom_name_changes:
                 pokemon["name"] = custom_name_changes[name]
-            # Append the Pokémon dictionary to the completed_pokemon_list.
+
             completed_pokemon_list.append(pokemon)
-            # Handle evolutions
+
             for evolved_pokemon, level in details["evolutions"].items():
                 for p in completed_pokemon_list:
                     if p["name"] == evolved_pokemon:
@@ -538,4 +543,3 @@ with open("pokemon_data.json", "w") as outfile:
     json.dump(completed_pokemon_list, outfile, indent=4)
 
     print("Data extraction completed.")
-
