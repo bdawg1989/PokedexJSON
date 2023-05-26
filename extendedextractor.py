@@ -12,9 +12,9 @@ colorama.init()
 ####################
 def sanitize_name(name, is_alt_form=False):
     name = name.replace("♀", "-f").replace("♂", "-m")
+    name = name.replace("é", "e")  # Replace "é" with "e"
     name = re.sub(r"[^a-zA-Z0-9\s-]", "", name)  # Remove any special characters except spaces and hyphens
     name = name.replace(" ", "-")  # Replace spaces with hyphens
-    name = name.replace("é", "e")  # Replace "é" with "e"
     name = name.lower()
     return name
 
@@ -178,8 +178,6 @@ def get_evolutions(soup):
 def get_pokemon_details(name, url):
     session = requests.Session()
     response = session.get(url)
-    if url.endswith("flabb"):
-        url = url[:-5] + "flabebe"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "lxml")
 
@@ -276,6 +274,11 @@ completed_pokemon = 0
 # Create an empty list to store completed Pokémon dictionaries.
 completed_pokemon_list = []
 
+pokemon_forms_mapping = {
+    "Flabébé": ["Flabebe-Orange", "Flabebe-Blue", "Flabebe-White", "Flabebe-Yellow"],
+    "Vivillon": ["Vivillon-Archipelago", "Vivillon-Continental", "Vivillon-Elegant", "Vivillon-Garden", "Vivillon-High Plains", "Vivillon-Icy Snow", "Vivillon-Jungle", "Vivillon-Marine", "Vivillon-Meadow", "Vivillon-Modern", "Vivillon-Monsoon", "Vivillon-Ocean", "Vivillon-Polar", "Vivillon-River", "Vivillon-Sandstorm", "Vivillon-Savanna", "Vivillon-Sun", "Vivillon-Tundra"]
+}
+
 with open("pokemon_data.json", "w") as outfile:
     for i, pokemon in tqdm(
         enumerate(pokemon_list),
@@ -287,14 +290,44 @@ with open("pokemon_data.json", "w") as outfile:
     ):
         name = pokemon["name"]
         base_name = get_base_name(name)
-        sanitized_name = sanitize_name(base_name)
+        sanitized_name = sanitize_name(base_name)         
         pokedex_url = f"https://pokemondb.net/pokedex/{sanitized_name}"
         details = get_pokemon_details(sanitized_name, pokedex_url)
 
         if details:
-            if '(' in name:
-                form_name = re.findall(r'\((.*?)\)', name)[0]
-                pokemon['form_name'] = form_name
+            # Handle Pokémon with forms
+            forms = pokemon_forms_mapping.get(pokemon['name'])
+            if forms:
+                original_pokemon = pokemon.copy()
+                original_pokemon.update(details)
+
+                # Sanitize the original Pokémon's name
+                sanitized_original_name = original_pokemon['name'].replace('é', 'e')
+
+                # Change the name of the original Pokémon
+                if original_pokemon['name'] != sanitized_original_name:
+                    original_pokemon['name'] = sanitized_original_name
+                    details['abilities'][sanitized_original_name] = details['abilities'].pop(pokemon['name'])
+
+                completed_pokemon_list.append(original_pokemon)
+
+                # Get the abilities of the original Pokémon
+                original_abilities = details['abilities'].get(sanitized_original_name, [])
+
+                # Handle Pokémon forms
+                for form in forms:
+                    pokemon_form = pokemon.copy()
+                    pokemon_form['name'] = form
+
+                    # Add the original abilities to the form
+                    details['abilities'][form] = original_abilities
+
+                    pokemon_form.update(details)
+                    completed_pokemon_list.append(pokemon_form)
+            else:
+                if '(' in name:
+                    form_name = re.findall(r'\((.*?)\)', name)[0]
+                    pokemon['form_name'] = form_name
 
             pokemon.update(details)
             # Custom name changes
@@ -474,8 +507,8 @@ with open("pokemon_data.json", "w") as outfile:
 				"Gengar (Mega Gengar)": "Gengar-Mega",
 				"Kangaskhan (Mega Kangaskhan)": "Kangaskhan-Mega",
 				"Eevee (Partner Eevee)": "Eevee",
-				"Mewtwo (Mega Mewtwo X)": "Mewtwo-Mega-X)",
-				"Mewtwo (Mega Mewtwo Y)": "Mewtwo-Mega-Y)",
+				"Mewtwo (Mega Mewtwo X)": "Mewtwo-Mega-X",
+				"Mewtwo (Mega Mewtwo Y)": "Mewtwo-Mega-Y",
 				"Sceptile (Mega Sceptile)": "Sceptile-Mega",
 				"Blaziken (Mega Blaziken)": "Blaziken-Mega",
 				"Castform (Sunny Form)": "Castform-Sunny",
@@ -523,6 +556,7 @@ with open("pokemon_data.json", "w") as outfile:
 				"Zamazenta (Crowned Shield)": "Zamazenta-Crowned",
 				"Eternatus (Eternamax)": "Eternatus-Eternamax",
 				"Calyrex (Ice Rider)": "Calyrex-Ice",
+                "Sandslash (Alolan Sandslash)": "Sandslash-Alola",
 				"Calyrex (Shadow Rider)": "Calyrex-Shadow"	
             }
 
@@ -540,6 +574,6 @@ with open("pokemon_data.json", "w") as outfile:
             completed_pokemon += 1
 
     # Dump the completed_pokemon_list into the JSON file.
-    json.dump(completed_pokemon_list, outfile, indent=4)
+    json.dump([p for p in completed_pokemon_list if p['name'] != 'Palafin-Hero'], outfile, indent=4)
 
     print("Data extraction completed.")
